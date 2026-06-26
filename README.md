@@ -40,18 +40,41 @@ godot --headless --path . res://scenes/main.tscn --quit-after 10   # run 10 fram
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
-| WASD | Move |
-| Mouse | Look |
-| Space | Jump |
-| Esc | Release / recapture mouse |
+Bindings live in `project.godot` under `[input]`; the `Action` column is the
+input-action name to use in code (`Input.is_action_*`).
+
+### Active
+
+| Key | Action (input map) | Does |
+|-----|--------------------|------|
+| W A S D | `move_forward` / `move_back` / `move_left` / `move_right` | Walk |
+| Mouse | — | Look (yaw + pitch, clamped) |
+| Space | `jump` | Jump |
+| Esc | `ui_cancel` | Release / recapture mouse cursor |
+
+### Planned (not bound yet)
+
+| Key | Action (input map) | Does |
+|-----|--------------------|------|
+| Shift | `sprint` | Sprint |
+| Ctrl / C | `crouch` | Crouch / hide |
+| E | `interact` | Use / grab |
+| Mouse 1 | `lunge` | Hunter catch / attack |
+
+> Adding a control = add the binding under `[input]` in `project.godot`, then
+> read it via its action name in the relevant script. Keep this table in sync.
 
 ## Layout
 
 ```
-project.godot        engine config + input map
-scenes/main.tscn     world: floor, lights, walls, player instance
-scenes/player.tscn   CharacterBody3D + capsule + Camera
-scripts/player.gd    movement controller
+project.godot            engine config + input map
+scenes/main.tscn         match root: light, maze renderer, player (main.gd)
+scenes/player.tscn       CharacterBody3D + capsule + Camera
+scripts/player.gd        first-person movement controller
+scripts/maze_generator.gd  pure maze data: backtracker + braiding (static API)
+scripts/maze_renderer.gd   grid -> 3D geometry + collision + spawn point
+scripts/main.gd          builds the maze, drops the player on a floor cell
+scripts/test_maze.gd     headless AC tests for the generator
+assests/terrain          modular terrain meshes (Cave/Cliff/Hilly/...)
+assests/character_models  player/hunter models
 ```
