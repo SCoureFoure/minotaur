@@ -1,32 +1,37 @@
 # Minotaur
 
-Asymmetric hide-and-seek party game ("friendslop"). One oversized **hunter** stalks
-several **hiders** through a maze. Cat and mouse.
+Asymmetric **vertical descent treasure-heist**. Players land on the surface of Minos
+(the minotaur's island), find a labyrinth entrance, and descend into the ground to
+loot treasure — then must carry it back **up** to the surface to escape. The
+**minotaur** hunts: lays traps, captures players (rescue mechanic TBD). Deeper =
+better loot but a longer, deadlier escape.
 
 Built in **Godot 4.7**.
 
 ## Design roadmap
 
-Three escalating versions, same skeleton (asymmetric hunter vs hiders):
-
-1. **Minotaur (this prototype)** — known hunter, fixed maze. De-risks movement +
-   networking before any social mechanics.
-2. **Reveal twist** — hunter is chosen *mid-match*; nobody knows who flips until it
-   happens. Werewolf-style paranoia layered on the working base.
-3. Polish — abilities, rounds, scoring.
-
-Betrayal mechanic is built **last** — it's just "swap a hider → hunter on a
-trigger" on top of a solid base.
+1. **Descent prototype (current)** — island surface + multi-level underground maze
+   (guaranteed connected), walkable ramps between levels, player-count sizing.
+2. **Core loop** — loot pickup + carry-out-to-escape win, minotaur role, multiplayer.
+3. **Polish** — cave-mesh skinning, grass/water/sky shaders, traps, social layer
+   (coop vs competitive).
 
 ## Status
 
 - [x] First-person `CharacterBody3D` controller — WASD + mouselook + jump
       (`scripts/player.gd`)
-- [x] Walkable test maze (`scenes/main.tscn`)
+- [x] Procedural single maze — backtracker + braiding, guaranteed connected
+      (`scripts/maze_generator.gd`, 7/7 headless ACs)
+- [x] Multi-level **maze volume** — stacked layers + vertical links, provably
+      connected in 3D (`scripts/maze_volume.gd`, 10/10 headless ACs)
+- [x] Descent renderer — island surface (grass + water ring), entrances with ramps
+      down, box collision, layer-colored levels (`scripts/maze_renderer.gd`)
+- [x] Player-count sizing — lobby size drives maze dims (6/6 headless ACs)
+- [ ] Loot pickup + carry-out-to-escape win condition
+- [ ] Minotaur role (bigger body, catch = overlap, traps)
 - [ ] Multiplayer host/join (ENet + RPC)
-- [ ] Hunter role (bigger body, catch = overlap area)
-- [ ] Win/lose + round loop
-- [ ] Mid-match betrayal reveal
+- [ ] Capture / rescue mechanic
+- [ ] Visual pass: cave meshes, BinbunGrass, water/sky shaders
 
 ## Run
 
@@ -67,14 +72,40 @@ input-action name to use in code (`Input.is_action_*`).
 ## Layout
 
 ```
-project.godot            engine config + input map
-scenes/main.tscn         match root: light, maze renderer, player (main.gd)
-scenes/player.tscn       CharacterBody3D + capsule + Camera
-scripts/player.gd        first-person movement controller
+project.godot              engine config + input map
+scenes/main.tscn           match root: env, light, maze renderer, player (main.gd)
+scenes/player.tscn         CharacterBody3D + capsule + Camera
+scripts/player.gd          first-person movement controller
 scripts/maze_generator.gd  pure maze data: backtracker + braiding (static API)
-scripts/maze_renderer.gd   grid -> 3D geometry + collision + spawn point
-scripts/main.gd          builds the maze, drops the player on a floor cell
-scripts/test_maze.gd     headless AC tests for the generator
-assests/terrain          modular terrain meshes (Cave/Cliff/Hilly/...)
-assests/character_models  player/hunter models
+scripts/maze_volume.gd     stacks layers + vertical links -> connected 3D volume
+scripts/maze_autotile.gd   wall-neighbor bitmask (for future mesh autotiling)
+scripts/maze_renderer.gd   volume -> island + underground levels + ramps + spawn
+scripts/main.gd            builds the maze, drops the player on the surface
+scripts/test_maze.gd       headless ACs: generator
+scripts/test_maze_volume.gd   headless ACs: 3D volume + connectivity
+scripts/test_autotile.gd   headless ACs: wall-neighbor mask
+scripts/test_sizing.gd     headless ACs: player-count -> maze dims
+assests/terrain            modular terrain meshes (Cave/Cliff/Beach/BinbunGrass/...)
+assests/shaders            sky + water shader packs (not yet wired)
+assests/character_models   player/hunter models
+```
+
+## Renderer knobs (`MazeRenderer` in `main.tscn`)
+
+| Export | Does |
+|--------|------|
+| `use_volume` | multi-level descent build (vs flat single maze) |
+| `player_count` + `auto_size_from_players` | lobby size → maze dims |
+| `cols` / `rows` / `layers` | manual dims (when auto off) |
+| `level_height` | world-Y drop per level (ramp angle = `atan(h/cell_size)`) |
+| `links_per_pair` | vertical links carved per adjacent level pair |
+| `entrance_count` | surface entrances (island holes + ramps down) |
+| `cave_calibration` | debug: lay cave meshes in a labeled row to read scale |
+
+## Tests (headless)
+
+```sh
+for t in test_maze test_maze_volume test_autotile test_sizing; do
+  godot --headless --path . --script res://scripts/$t.gd
+done   # each prints ALL_PASS
 ```

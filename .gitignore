@@ -22,3 +22,6 @@ Thumbs.db
 *.exe
 *.pck
 *.zip
+
+# warboss-horde metering ledgers
+.warboss-horde/

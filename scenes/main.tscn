@@ -1,21 +1,39 @@
-[gd_scene load_steps=4 format=3 uid="uid://cmain00minotaur"]
+[gd_scene load_steps=6 format=3 uid="uid://cmain00minotaur"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="0_main"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/maze_renderer.gd" id="2_maze"]
 
+[sub_resource type="ProceduralSkyMaterial" id="Sky_1"]
+sky_horizon_color = Color(0.55, 0.6, 0.7, 1)
+ground_horizon_color = Color(0.4, 0.42, 0.5, 1)
+
+[sub_resource type="Sky" id="Sky_2"]
+sky_material = SubResource("Sky_1")
+
+[sub_resource type="Environment" id="Env_1"]
+background_mode = 2
+sky = SubResource("Sky_2")
+ambient_light_source = 3
+ambient_light_color = Color(0.7, 0.72, 0.8, 1)
+ambient_light_energy = 0.55
+
 [node name="Main" type="Node3D"]
 script = ExtResource("0_main")
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_1")
+
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 12, 0)
+light_energy = 1.2
 shadow_enabled = true
 
 [node name="MazeRenderer" type="Node3D" parent="."]
 script = ExtResource("2_maze")
-cols = 12
-rows = 12
 braid = 0.4
+use_volume = true
+player_count = 2
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
