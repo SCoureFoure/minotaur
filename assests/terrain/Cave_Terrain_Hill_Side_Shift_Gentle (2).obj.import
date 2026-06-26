@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://ctoruaevepjcw"
+path="res://.godot/imported/Cave_Terrain_Hill_Side_Shift_Gentle (2).obj-c7f6379dfe0c2a90edccff4638eb6c9a.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Cave_Terrain_Hill_Side_Shift_Gentle (2).obj-c7f6379dfe0c2a90edccff4638eb6c9a.mesh"]
+
+source_file="res://assests/terrain/Cave_Terrain_Hill_Side_Shift_Gentle (2).obj"
+dest_files=["res://.godot/imported/Cave_Terrain_Hill_Side_Shift_Gentle (2).obj-c7f6379dfe0c2a90edccff4638eb6c9a.mesh", "res://.godot/imported/Cave_Terrain_Hill_Side_Shift_Gentle (2).obj-c7f6379dfe0c2a90edccff4638eb6c9a.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dq2stk3asutkh"
+path="res://.godot/imported/Hilly_Prop_Fence_Post_1 (2).obj-e498c343f9b37557a6c9eb1fbd1df4bc.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Hilly_Prop_Fence_Post_1 (2).obj-e498c343f9b37557a6c9eb1fbd1df4bc.mesh"]
+
+source_file="res://assests/terrain/Hilly_Prop_Fence_Post_1 (2).obj"
+dest_files=["res://.godot/imported/Hilly_Prop_Fence_Post_1 (2).obj-e498c343f9b37557a6c9eb1fbd1df4bc.mesh", "res://.godot/imported/Hilly_Prop_Fence_Post_1 (2).obj-e498c343f9b37557a6c9eb1fbd1df4bc.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
