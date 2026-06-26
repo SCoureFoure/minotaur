@@ -12,8 +12,12 @@ config_version=5
 
 config/name="Minotaur"
 config/description="Asymmetric hide-and-seek. One big hunter, several hiders, in a maze."
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
+
+[autoload]
+
+GameSettings="*res://scripts/game_settings.gd"
 
 [input]
 
