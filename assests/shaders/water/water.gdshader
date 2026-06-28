@@ -1,4 +1,4 @@
-#define USE_CAUSTICS 1
+#define USE_CAUSTICS 0
 #define USE_REFRACTION 1
 #define USE_DISPLACEMENT 1
 #define USE_STYLIZED_LIGHTING 0
@@ -10,7 +10,7 @@ shader_type spatial;
 #if USE_UNSHADED
 render_mode unshaded, depth_draw_never;
 #else
-render_mode depth_draw_never;
+render_mode depth_draw_never, cull_disabled;
 #endif
 
 uniform sampler2D DEPTH_TEXTURE: hint_depth_texture;

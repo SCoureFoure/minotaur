@@ -25,3 +25,6 @@ Thumbs.db
 
 # warboss-horde metering ledgers
 .warboss-horde/
+
+# Dev screenshots
+/screenshots/

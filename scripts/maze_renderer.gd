@@ -180,6 +180,44 @@ func _calib_mat(c: Color) -> StandardMaterial3D:
 	m.albedo_color = c
 	return m
 
+# Shared lush-green gradient used by both the island ground material and the
+# blade material so a single edit recolors all grass at once.
+func _grass_gradient() -> GradientTexture2D:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	g.colors = PackedColorArray([
+		Color(0.26, 0.46, 0.18),
+		Color(0.36, 0.58, 0.26),
+		Color(0.50, 0.70, 0.34),
+	])
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.width = 256
+	t.height = 1
+	t.fill_from = Vector2(0, 0)
+	t.fill_to = Vector2(1, 0)
+	return t
+
+func _is_shore(gx: int, gy: int) -> bool:
+	return gx == 0 or gy == 0 or gx == grid_w - 1 or gy == grid_h - 1
+
+# Sand gradient: damp-dark to dry-light tan/beige, mirrors _grass_gradient() layout.
+func _sand_gradient() -> GradientTexture2D:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	g.colors = PackedColorArray([
+		Color(0.62, 0.52, 0.34),
+		Color(0.78, 0.69, 0.48),
+		Color(0.90, 0.82, 0.62),
+	])
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.width = 256
+	t.height = 1
+	t.fill_from = Vector2(0, 0)
+	t.fill_to = Vector2(1, 0)
+	return t
+
 func _calib_label(text: String, pos: Vector3) -> Label3D:
 	var l := Label3D.new()
 	l.text = text
@@ -231,6 +269,8 @@ func _build_volume() -> void:
 
 	_pick_entrances()
 	_build_island()
+	_build_grass()
+	_build_grass_carpet()
 	_build_water()
 
 	# Hole the SHALLOWER layer's floor at each link so the ramp can descend through.
@@ -247,9 +287,9 @@ func _build_volume() -> void:
 			for gx in range(grid_w):
 				if grids[l][gy][gx] == 1:
 					if not holes.has("%d:%d:%d" % [l, gx, gy]):
-						_volume_floor(gx, gy, base_y, col)
+						_volume_floor(gx, gy, base_y, col, l)
 				else:
-					_volume_wall(gx, gy, base_y, col)
+					_volume_wall(gx, gy, base_y, col, l)
 
 	# Internal descent ramps between maze levels.
 	for lk in volume["links"]:
@@ -287,18 +327,34 @@ func _build_island() -> void:
 	var hole := {}
 	for e in entrance_cells:
 		hole["%d:%d" % [e[0], e[1]]] = true
-	var grass := _calib_mat(Color(0.30, 0.50, 0.22))
+	var ground_mat := load("res://assests/terrain/BinbunGrass/src/materials/grass_01/grass_ground_01.tres").duplicate()
+	ground_mat.set_shader_parameter("color_gradient", _grass_gradient())
+	var ground_fn := FastNoiseLite.new()
+	ground_fn.frequency = 0.05
+	var ground_noise := NoiseTexture2D.new()
+	ground_noise.seamless = true
+	ground_noise.noise = ground_fn
+	ground_mat.set_shader_parameter("noise_texture", ground_noise)
+	var sand_mat := load("res://assests/terrain/BinbunGrass/src/materials/grass_01/grass_ground_01.tres").duplicate()
+	sand_mat.set_shader_parameter("color_gradient", _sand_gradient())
+	var sand_fn := FastNoiseLite.new()
+	sand_fn.frequency = 0.05
+	var sand_noise := NoiseTexture2D.new()
+	sand_noise.seamless = true
+	sand_noise.noise = sand_fn
+	sand_mat.set_shader_parameter("noise_texture", sand_noise)
 	for gy in range(grid_h):
 		for gx in range(grid_w):
 			if hole.has("%d:%d" % [gx, gy]):
 				continue
 			var body := StaticBody3D.new()
+			body.name = ("Sand_%d_%d" if _is_shore(gx, gy) else "Grass_%d_%d") % [gx, gy]
 			var size := Vector3(cell_size, ISLAND_THICK, cell_size)
 			var mesh := MeshInstance3D.new()
 			var box := BoxMesh.new()
 			box.size = size
 			mesh.mesh = box
-			mesh.material_override = grass
+			mesh.material_override = sand_mat if _is_shore(gx, gy) else ground_mat
 			body.add_child(mesh)
 			var c := CollisionShape3D.new()
 			var s := BoxShape3D.new()
@@ -308,45 +364,225 @@ func _build_island() -> void:
 			body.position = Vector3(gx * cell_size, ISLAND_TOP - ISLAND_THICK * 0.5, gy * cell_size)
 			add_child(body)
 
-# Flat water plane ringing the island (visual + shallow catch collision).
-# Water FRAME ringing the island (4 boxes), leaving the island footprint open so
-# entrances aren't covered or collision-blocked. Flat blue placeholder material.
+# GPU-instanced grass clumps scattered across island tiles (visual only, no collision).
+# Uses one MultiMeshInstance3D per clump mesh (4 total max). Seeded from maze_seed.
+func _build_grass() -> void:
+	var grass_paths := [
+		"res://assests/terrain/Hilly_Prop_Grass_Clump_1 (2).obj",
+		"res://assests/terrain/Hilly_Prop_Grass_Clump_2 (2).obj",
+		"res://assests/terrain/Hilly_Prop_Grass_Clump_3 (2).obj",
+		"res://assests/terrain/Hilly_Prop_Grass_Clump_4 (2).obj",
+	]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = maze_seed ^ 0x6A55
+
+	var hole := {}
+	for e in entrance_cells:
+		hole["%d:%d" % [e[0], e[1]]] = true
+
+	# Collect transform lists per mesh index before creating any nodes.
+	var transforms: Array = [[], [], [], []]
+
+	for gy in range(grid_h):
+		for gx in range(grid_w):
+			if hole.has("%d:%d" % [gx, gy]):
+				continue
+			if _is_shore(gx, gy):
+				continue
+			if rng.randf() < 0.5:
+				# Place 2 clumps on this eligible tile.
+				for _c in range(2):
+					var mi: int = rng.randi() % 4
+					var jx: float = (rng.randf() * 2.0 - 1.0) * cell_size * 0.4
+					var jz: float = (rng.randf() * 2.0 - 1.0) * cell_size * 0.4
+					var pos := Vector3(gx * cell_size + jx, ISLAND_TOP, gy * cell_size + jz)
+					var yaw: float = rng.randf() * TAU
+					var scale: float = 0.8 + rng.randf() * 0.6
+					var basis := Basis(Vector3.UP, yaw).scaled(Vector3(scale, scale, scale))
+					transforms[mi].append(Transform3D(basis, pos))
+
+	for idx in range(4):
+		if transforms[idx].size() == 0:
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = load(grass_paths[idx])
+		mm.instance_count = transforms[idx].size()
+		for i in range(transforms[idx].size()):
+			mm.set_instance_transform(i, transforms[idx][i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.name = "Grass_%d" % idx
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mmi)
+
+# GPU-instanced BinbunGrass billboard carpet — ONE MultiMeshInstance3D (one draw call).
+# No collision. Blade count capped at 25000 for perf. Seeded from maze_seed.
+func _build_grass_carpet() -> void:
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.4, 0.4)
+	quad.subdivide_width = 2
+	quad.subdivide_depth = 2
+	quad.center_offset = Vector3(0, 0.2, 0)   # base at y=0, tip at 0.4
+
+	var grass_mat := load("res://assests/terrain/BinbunGrass/src/materials/grass_01/grass_01.tres")
+	grass_mat.set_shader_parameter("wind_velocity", Vector2(0.6, 0.35))
+	grass_mat.set_shader_parameter("random_variation", 0.1)
+	grass_mat.set_shader_parameter("color_gradient", _grass_gradient())
+	quad.material = grass_mat
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = maze_seed ^ 0x2C3A
+
+	var hole := {}
+	for e in entrance_cells:
+		hole["%d:%d" % [e[0], e[1]]] = true
+
+	var eligible := 0
+	for gy in range(grid_h):
+		for gx in range(grid_w):
+			if not hole.has("%d:%d" % [gx, gy]):
+				if not _is_shore(gx, gy):
+					eligible += 1
+	if eligible == 0:
+		return
+	var target_per_tile := 40
+	var cap := 60000
+	var per_tile: int = mini(target_per_tile, maxi(1, cap / eligible))
+	var transforms: Array = []
+
+	for gy in range(grid_h):
+		for gx in range(grid_w):
+			if hole.has("%d:%d" % [gx, gy]):
+				continue
+			if _is_shore(gx, gy):
+				continue
+			for _b in range(per_tile):
+				var jx: float = (rng.randf() * 2.0 - 1.0) * cell_size * 0.5
+				var jz: float = (rng.randf() * 2.0 - 1.0) * cell_size * 0.5
+				var pos := Vector3(gx * cell_size + jx, ISLAND_TOP, gy * cell_size + jz)
+				var yaw: float = rng.randf() * TAU
+				var sc: float = 0.7 + rng.randf() * 0.8
+				var basis := Basis(Vector3.UP, yaw).scaled(Vector3(sc, sc, sc))
+				transforms.append(Transform3D(basis, pos))
+
+	if transforms.is_empty():
+		return
+
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = quad
+	mm.instance_count = transforms.size()
+	for i in range(transforms.size()):
+		mm.set_instance_transform(i, transforms[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.name = "GrassCarpet"
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+
+# Single seamless water plane covering the island footprint plus a wide margin
+# (visual + shallow catch collision). One StaticBody3D, one BoxShape3D.
 func _build_water() -> void:
 	var x0: float = -cell_size * 0.5
 	var x1: float = (grid_w - 1) * cell_size + cell_size * 0.5
 	var z0: float = -cell_size * 0.5
 	var z1: float = (grid_h - 1) * cell_size + cell_size * 0.5
 	var m: float = max(grid_w, grid_h) * cell_size * 2.0
-	# [center_x, center_z, size_x, size_z]
-	var rings := [
-		[(x0 + x1) * 0.5, z0 - m * 0.5, (x1 - x0) + 2.0 * m, m],   # north
-		[(x0 + x1) * 0.5, z1 + m * 0.5, (x1 - x0) + 2.0 * m, m],   # south
-		[x0 - m * 0.5, (z0 + z1) * 0.5, m, (z1 - z0)],             # west
-		[x1 + m * 0.5, (z0 + z1) * 0.5, m, (z1 - z0)],             # east
-	]
-	var mat := _calib_mat(Color(0.13, 0.32, 0.5))
-	mat.metallic = 0.2
-	mat.roughness = 0.1
-	for r in rings:
-		var body := StaticBody3D.new()
-		body.name = "Water"
-		var size := Vector3(r[2], 0.2, r[3])
-		var mesh := MeshInstance3D.new()
-		var box := BoxMesh.new()
-		box.size = size
-		mesh.mesh = box
-		mesh.material_override = mat
-		body.add_child(mesh)
-		var c := CollisionShape3D.new()
-		var s := BoxShape3D.new()
-		s.size = size
-		c.shape = s
-		body.add_child(c)
-		body.position = Vector3(r[0], water_level, r[1])
-		add_child(body)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assests/shaders/water/water.gdshader")
 
-func _volume_floor(gx: int, gy: int, base_y: float, col: Color) -> void:
+	var fn_wave := FastNoiseLite.new()
+	fn_wave.frequency = 0.01
+	var tex_wave := NoiseTexture2D.new()
+	tex_wave.seamless = true
+	tex_wave.noise = fn_wave
+	mat.set_shader_parameter("wave_texture", tex_wave)
+
+	var fn_foam := FastNoiseLite.new()
+	fn_foam.frequency = 0.05
+	var tex_foam := NoiseTexture2D.new()
+	tex_foam.seamless = true
+	tex_foam.noise = fn_foam
+	mat.set_shader_parameter("foam_texture", tex_foam)
+
+	var fn_normal := FastNoiseLite.new()
+	fn_normal.frequency = 0.02
+	var tex_normal := NoiseTexture2D.new()
+	tex_normal.seamless = true
+	tex_normal.as_normal_map = true
+	tex_normal.bump_strength = 4.0
+	tex_normal.noise = fn_normal
+	mat.set_shader_parameter("wave_normal_texture", tex_normal)
+
+	mat.set_shader_parameter("surface_color", Color(0.13, 0.42, 0.62, 1.0))
+	mat.set_shader_parameter("depth_color", Color(0.04, 0.12, 0.28, 1.0))
+	mat.set_shader_parameter("wave_foam_amount", 0.25)
+	mat.set_shader_parameter("foam_start", 0.5)
+	mat.set_shader_parameter("foam_end", 0.75)
+	mat.set_shader_parameter("foam_exponent", 3.0)
+	mat.set_shader_parameter("edge_foam_depth_size", 0.4)
+	# Ring (frame) water: one continuous mesh with a rectangular hole over the island
+	# footprint, so entrance pits show the maze below instead of water, and there is no
+	# internal seam (single surface). Inner edge tucks under the grass cap by `tuck`.
+	var tuck: float = 0.2
+	var ox0: float = x0 - m
+	var ox1: float = x1 + m
+	var oz0: float = z0 - m
+	var oz1: float = z1 + m
+	var ix0: float = x0 + tuck
+	var ix1: float = x1 - tuck
+	var iz0: float = z0 + tuck
+	var iz1: float = z1 - tuck
+
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# Helper inlined: each band is a quad (a,b,c,d) -> tris (a,b,c)+(a,c,d), normal up.
+	var bands := [
+		[Vector3(ox0, 0, oz0), Vector3(ox1, 0, oz0), Vector3(ox1, 0, iz0), Vector3(ox0, 0, iz0)],  # north
+		[Vector3(ox0, 0, iz1), Vector3(ox1, 0, iz1), Vector3(ox1, 0, oz1), Vector3(ox0, 0, oz1)],  # south
+		[Vector3(ox0, 0, iz0), Vector3(ix0, 0, iz0), Vector3(ix0, 0, iz1), Vector3(ox0, 0, iz1)],  # west
+		[Vector3(ix1, 0, iz0), Vector3(ox1, 0, iz0), Vector3(ox1, 0, iz1), Vector3(ix1, 0, iz1)],  # east
+	]
+	for q in bands:
+		for tri in [[q[0], q[1], q[2]], [q[0], q[2], q[3]]]:
+			for v in tri:
+				st.set_normal(Vector3.UP)
+				st.set_uv(Vector2(v.x, v.z))
+				st.add_vertex(v)
+	var ring_mesh := st.commit()
+
 	var body := StaticBody3D.new()
+	body.name = "Water"
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = ring_mesh
+	mesh.material_override = mat
+	body.add_child(mesh)
+	body.position = Vector3(0, water_level, 0)
+	add_child(body)
+
+	# Collision: thin catch boxes OUTSIDE the footprint only (never over entrance pits).
+	# [center_x, center_z, size_x, size_z]
+	var coll_bands := [
+		[(ox0 + ox1) * 0.5, (oz0 + z0) * 0.5, ox1 - ox0, z0 - oz0],  # north
+		[(ox0 + ox1) * 0.5, (z1 + oz1) * 0.5, ox1 - ox0, oz1 - z1],  # south
+		[(ox0 + x0) * 0.5, (z0 + z1) * 0.5, x0 - ox0, z1 - z0],      # west
+		[(x1 + ox1) * 0.5, (z0 + z1) * 0.5, ox1 - x1, z1 - z0],      # east
+	]
+	for cb in coll_bands:
+		var cbody := StaticBody3D.new()
+		cbody.name = "WaterCollision"
+		var ccol := CollisionShape3D.new()
+		var cshape := BoxShape3D.new()
+		cshape.size = Vector3(cb[2], 0.2, cb[3])
+		ccol.shape = cshape
+		cbody.add_child(ccol)
+		cbody.position = Vector3(cb[0], water_level, cb[1])
+		add_child(cbody)
+
+func _volume_floor(gx: int, gy: int, base_y: float, col: Color, l: int) -> void:
+	var body := StaticBody3D.new()
+	body.name = "Floor_L%d_%d_%d" % [l, gx, gy]
 	var size := Vector3(cell_size, 0.5, cell_size)
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
@@ -362,8 +598,9 @@ func _volume_floor(gx: int, gy: int, base_y: float, col: Color) -> void:
 	body.position = Vector3(gx * cell_size, base_y - 0.25, gy * cell_size)
 	add_child(body)
 
-func _volume_wall(gx: int, gy: int, base_y: float, col: Color) -> void:
+func _volume_wall(gx: int, gy: int, base_y: float, col: Color, l: int) -> void:
 	var body := StaticBody3D.new()
+	body.name = "Wall_L%d_%d_%d" % [l, gx, gy]
 	var size := Vector3(cell_size, level_height, cell_size)
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
@@ -408,6 +645,26 @@ func _ramp(gx: int, gy: int, top_y: float, bot_y: float, col: Color, name: Strin
 	body.add_child(c)
 	body.transform = xform
 	add_child(body)
+
+# Snapshot of the current build for logging / screenshot metadata.
+func debug_state() -> Dictionary:
+	var ent: Array = []
+	for e in entrance_cells:
+		ent.append([e[0], e[1]])
+	var sp := get_spawn_position()
+	return {
+		"seed": maze_seed,
+		"cols": cols,
+		"rows": rows,
+		"layers": layers,
+		"level_height": level_height,
+		"cell_size": cell_size,
+		"grid_w": grid_w,
+		"grid_h": grid_h,
+		"entrance_cells": ent,
+		"water_level": water_level,
+		"spawn": [sp.x, sp.y, sp.z],
+	}
 
 # World position above the first FLOOR cell center — where to drop a player.
 func get_spawn_position() -> Vector3:
