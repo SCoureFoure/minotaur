@@ -91,6 +91,19 @@ it is the only thing keeping deep levels reachable.
 - **`cave_calibration = true`** is a debug mode: skips the maze and lays candidate meshes in
   a labeled row next to a 1m reference cube to read scale/pivot by eye.
 
+## Specs (spec-driven workflow)
+
+Durable rules/behaviors live as specs in **`specs/`** — one `<feature>.spec.md` per system,
+each paired 1:1 with a headless `test_*.gd`. This formalizes the convention above: a rule
+expressed as data + a pass/fail test gets a spec capturing its requirement, inherited
+constraints, pinned decisions, and acceptance criteria. Start at `specs/README.md`.
+
+Run the loop with the **`/spec`** skill (`.claude/skills/spec/SKILL.md`):
+`SPEC → REUSE-SCAN → CRITERIA→TESTS → BUILD → VERIFY → DEPOSIT`. The **BUILD** step dispatches
+through Warboss (`/warboss-horde:delegate`): a spec's acceptance-criteria block is the dense
+`doer` contract, and the mapped `test_*.gd` is the membrane the WARBOSS judges by. Example:
+`specs/maze_wall_autotile.spec.md` ↔ `scripts/test_maze_walls.gd`.
+
 ## Hybrid visual plan (not yet wired)
 
 Topology is owned by the maze algorithms (connectivity guaranteed); **visuals** will be
