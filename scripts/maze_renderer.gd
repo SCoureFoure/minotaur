@@ -233,13 +233,6 @@ func _calib_label(text: String, pos: Vector3) -> Label3D:
 # SHALLOWER layer's floor is holed and a ramp descends through it to the deeper
 # layer's floor (single cell, atan(level_height/cell_size) < 45deg = walkable).
 # Box collision throughout.
-const _LAYER_COLORS := [
-	Color(0.35, 0.55, 0.75),  # layer 0 blue-gray
-	Color(0.45, 0.70, 0.45),  # layer 1 green
-	Color(0.75, 0.60, 0.40),  # layer 2 tan
-	Color(0.70, 0.45, 0.65),  # layer 3 mauve
-]
-
 # Map a lobby size to maze dimensions (cols, rows, layers). More players => bigger
 # board + deeper; clamped so it stays gener-able and testable. Pure + headless-tested.
 static func size_for_players(n: int) -> Vector3i:
@@ -281,15 +274,14 @@ func _build_volume() -> void:
 		holes["%d:%d:%d" % [int(lk["lower"]), gx, gy]] = true
 
 	for l in range(grids.size()):
-		var col: Color = _LAYER_COLORS[l % _LAYER_COLORS.size()]
 		var base_y: float = _layer_y(l)
 		for gy in range(grid_h):
 			for gx in range(grid_w):
 				if grids[l][gy][gx] == 1:
 					if not holes.has("%d:%d:%d" % [l, gx, gy]):
-						_volume_floor(gx, gy, base_y, col, l)
+						_volume_floor(gx, gy, base_y, l)
 				else:
-					_volume_wall(gx, gy, base_y, col, l)
+					_volume_wall(gx, gy, base_y, l)
 
 	# Internal descent ramps between maze levels.
 	for lk in volume["links"]:
@@ -301,6 +293,11 @@ func _build_volume() -> void:
 	# Entrance ramps: island surface down to the first maze level.
 	for e in entrance_cells:
 		_ramp(e[0], e[1], ISLAND_TOP, _layer_y(0), Color(0.9, 0.7, 0.3), "Entrance_%d_%d" % [e[0], e[1]])
+
+	# Visual wall skin: GPU-instanced KayKit panels + pillars over every layer.
+	_build_wall_visuals()
+	_build_floor_visuals()
+	_build_ceiling_visuals()
 
 # Choose distinct logical-cell centers as surface entrances (open in maze layer 0).
 func _pick_entrances() -> void:
@@ -580,16 +577,10 @@ func _build_water() -> void:
 		cbody.position = Vector3(cb[0], water_level, cb[1])
 		add_child(cbody)
 
-func _volume_floor(gx: int, gy: int, base_y: float, col: Color, l: int) -> void:
+func _volume_floor(gx: int, gy: int, base_y: float, l: int) -> void:
 	var body := StaticBody3D.new()
 	body.name = "Floor_L%d_%d_%d" % [l, gx, gy]
 	var size := Vector3(cell_size, 0.5, cell_size)
-	var mesh := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	mesh.mesh = box
-	mesh.material_override = _calib_mat(col)
-	body.add_child(mesh)
 	var c := CollisionShape3D.new()
 	var s := BoxShape3D.new()
 	s.size = size
@@ -598,16 +589,10 @@ func _volume_floor(gx: int, gy: int, base_y: float, col: Color, l: int) -> void:
 	body.position = Vector3(gx * cell_size, base_y - 0.25, gy * cell_size)
 	add_child(body)
 
-func _volume_wall(gx: int, gy: int, base_y: float, col: Color, l: int) -> void:
+func _volume_wall(gx: int, gy: int, base_y: float, l: int) -> void:
 	var body := StaticBody3D.new()
 	body.name = "Wall_L%d_%d_%d" % [l, gx, gy]
 	var size := Vector3(cell_size, level_height, cell_size)
-	var mesh := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	mesh.mesh = box
-	mesh.material_override = _calib_mat(col.darkened(0.4))
-	body.add_child(mesh)
 	var c := CollisionShape3D.new()
 	var s := BoxShape3D.new()
 	s.size = size
@@ -616,6 +601,10 @@ func _volume_wall(gx: int, gy: int, base_y: float, col: Color, l: int) -> void:
 	body.position = Vector3(gx * cell_size, base_y + level_height * 0.5, gy * cell_size)
 	add_child(body)
 
+# TODO(ramps): ramps are a single inclined slab; angle = atan(level_height/cell_size),
+# which exceeds the player's 45deg floor_max_angle once level_height > cell_size
+# (e.g. level_height=5, cell=4 -> 51deg, unwalkable). Rework to stairs/switchbacks when
+# level_height becomes variable. See memory: ramp-rework-pin.
 func _ramp(gx: int, gy: int, top_y: float, bot_y: float, col: Color, name: String) -> void:
 	# Inclined slab inside cell (gx,gy): rises by (top_y-bot_y) over one cell of run
 	# along +X, so the +X end meets top_y and the -X end meets bot_y. Thin to limit
@@ -645,6 +634,178 @@ func _ramp(gx: int, gy: int, top_y: float, bot_y: float, col: Color, name: Strin
 	body.add_child(c)
 	body.transform = xform
 	add_child(body)
+
+# --- KayKit visual wall skin (GPU-instanced, no collision) ------------------
+# KayKit wall mesh native size (X & Y); used to scale to our grid.
+const WALL_NATIVE := 4.0
+const KAYKIT_GLTF := "res://assests/props/KayKit_DungeonRemastered_1.1_FREE/Assets/gltf/"
+
+# Extract a Mesh from a PackedScene (.gltf). Frees the temp instance.
+# Returns null if the file cannot be loaded or contains no MeshInstance3D.
+func _mesh_from_gltf(path: String) -> Mesh:
+	var packed = load(path)
+	if packed == null:
+		return null
+	var inst = packed.instantiate()
+	var m := _find_mesh_rec(inst)
+	inst.free()
+	return m
+
+func _find_mesh_rec(n: Node) -> Mesh:
+	if n is MeshInstance3D:
+		return (n as MeshInstance3D).mesh
+	for c in n.get_children():
+		var r := _find_mesh_rec(c)
+		if r != null:
+			return r
+	return null
+
+# Build two MultiMeshInstance3D nodes — "WallPanels" and "WallPillars" — from
+# MazeWalls.wall_visuals over every layer in volume["grids"]. Visual only.
+func _build_wall_visuals() -> void:
+	var wall_mesh := _mesh_from_gltf(KAYKIT_GLTF + "wall.gltf")
+	var pillar_mesh := _mesh_from_gltf(KAYKIT_GLTF + "wall_pillar.gltf")
+	if wall_mesh == null or pillar_mesh == null:
+		return
+	var grids: Array = volume["grids"]
+	var sxz: float = cell_size / WALL_NATIVE
+	var sy: float = level_height / WALL_NATIVE
+	var scale_v := Vector3(sxz, sy, sxz)
+	var half: float = cell_size * 0.5
+
+	# side index -> planar offset from cell center to that edge (N,E,S,W)
+	var side_off := [Vector3(0,0,-half), Vector3(half,0,0), Vector3(0,0,half), Vector3(-half,0,0)]
+	# corner index -> planar offset to that corner (NE,SE,SW,NW)
+	var corner_off := [Vector3(half,0,-half), Vector3(half,0,half), Vector3(-half,0,half), Vector3(-half,0,-half)]
+
+	var panel_xforms: Array = []
+	var pillar_xforms: Array = []
+
+	for l in range(grids.size()):
+		var base_y: float = _layer_y(l)
+		for p in MazeWalls.wall_visuals(grids[l]):
+			var gx: int = int(p["x"])
+			var gy: int = int(p["y"])
+			var rot_y: float = deg_to_rad(float(p["rot"]))
+			var basis := Basis(Vector3.UP, rot_y).scaled(scale_v)
+			if p["kind"] == "panel":
+				var off: Vector3 = side_off[int(p["side"])]
+				var pos := Vector3(gx * cell_size + off.x, base_y, gy * cell_size + off.z)
+				panel_xforms.append(Transform3D(basis, pos))
+			else:
+				var coff: Vector3 = corner_off[int(p["corner"])]
+				var cpos := Vector3(gx * cell_size + coff.x, base_y, gy * cell_size + coff.z)
+				pillar_xforms.append(Transform3D(basis, cpos))
+
+	_add_wall_multimesh(wall_mesh, panel_xforms, "WallPanels")
+	_add_wall_multimesh(pillar_mesh, pillar_xforms, "WallPillars")
+
+func _build_floor_visuals() -> void:
+	var floor_mesh := _mesh_from_gltf(KAYKIT_GLTF + "floor_tile_large.gltf")
+	if floor_mesh == null:
+		return
+	var grids: Array = volume["grids"]
+	# Same hole set the box builder uses, so tiles match the walkable floor.
+	var holes := {}
+	for lk in volume["links"]:
+		var hgx: int = 2 * int(lk["cx"]) + 1
+		var hgy: int = 2 * int(lk["cy"]) + 1
+		holes["%d:%d:%d" % [int(lk["lower"]), hgx, hgy]] = true
+	var sxz: float = cell_size / WALL_NATIVE
+	var scale_v := Vector3(sxz, 1.0, sxz)
+	var xforms: Array = []
+	for l in range(grids.size()):
+		var base_y: float = _layer_y(l)
+		var gh: int = grids[l].size()
+		var gw: int = grids[l][0].size()
+		for gy in range(gh):
+			for gx in range(gw):
+				if grids[l][gy][gx] != 1:
+					continue
+				if holes.has("%d:%d:%d" % [l, gx, gy]):
+					continue
+				var pos := Vector3(gx * cell_size, base_y + 0.02, gy * cell_size)
+				xforms.append(Transform3D(Basis().scaled(scale_v), pos))
+	if xforms.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = floor_mesh
+	mm.instance_count = xforms.size()
+	for i in range(xforms.size()):
+		mm.set_instance_transform(i, xforms[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.name = "FloorTiles"
+	var fts := _two_sided_mat(floor_mesh)
+	if fts != null:
+		mmi.material_override = fts
+	add_child(mmi)
+
+func _build_ceiling_visuals() -> void:
+	var ceil_mesh := _mesh_from_gltf(KAYKIT_GLTF + "floor_tile_large.gltf")
+	if ceil_mesh == null:
+		return
+	var grids: Array = volume["grids"]
+	if grids.is_empty():
+		return
+	var ent := {}
+	for e in entrance_cells:
+		ent["%d:%d" % [e[0], e[1]]] = true
+	var sxz: float = cell_size / WALL_NATIVE
+	var top_y: float = ISLAND_TOP - ISLAND_THICK - 0.05   # just below the grass cap
+	var g0: Array = grids[0]
+	var xforms: Array = []
+	for gy in range(g0.size()):
+		for gx in range(g0[gy].size()):
+			if g0[gy][gx] != 1:
+				continue
+			if ent.has("%d:%d" % [gx, gy]):
+				continue
+			xforms.append(Transform3D(Basis().scaled(Vector3(sxz, 1.0, sxz)), Vector3(gx * cell_size, top_y, gy * cell_size)))
+	if xforms.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = ceil_mesh
+	mm.instance_count = xforms.size()
+	for i in range(xforms.size()):
+		mm.set_instance_transform(i, xforms[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.name = "CeilingTiles"
+	var ts := _two_sided_mat(ceil_mesh)
+	if ts != null:
+		mmi.material_override = ts
+	add_child(mmi)
+
+func _two_sided_mat(mesh: Mesh) -> Material:
+	if mesh == null or mesh.get_surface_count() == 0:
+		return null
+	var m = mesh.surface_get_material(0)
+	if m == null:
+		return null
+	var dup = m.duplicate()
+	if dup is BaseMaterial3D:
+		dup.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return dup
+
+func _add_wall_multimesh(mesh: Mesh, xforms: Array, node_name: String) -> void:
+	if xforms.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = xforms.size()
+	for i in range(xforms.size()):
+		mm.set_instance_transform(i, xforms[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.name = node_name
+	var ts := _two_sided_mat(mesh)
+	if ts != null:
+		mmi.material_override = ts
+	add_child(mmi)
 
 # Snapshot of the current build for logging / screenshot metadata.
 func debug_state() -> Dictionary:
