@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Default workflow — delegate through Warboss
+
+**The primary development path is `warboss:delegate`, not direct implementation.** When a
+request involves changing code/specs/assets beyond a single trivial edit, the default is:
+
+1. **SLICE** the work into decided units (author the entropy out — each slice should have
+   one correct implementation, no open design forks).
+2. **DISPATCH** via the **`/warboss-horde:delegate`** skill: route each slice to the cheapest
+   `doer` subagent that can satisfy it, at the model tier the slice warrants.
+3. **JUDGE** each result yourself by running the slice's verify/test command (the headless
+   `test_*.gd` suites are the membrane — see Specs below).
+
+Handle work **inline (no delegate)** only for: one-line edits, read-only Q&A, or pure
+investigation. **Spec-shaped** work goes through the **`/spec`** skill, whose BUILD step
+already dispatches through Warboss. When unsure whether to delegate, prefer delegate.
+
+A project `UserPromptSubmit` hook (`.claude/hooks/warboss-default.js`) restates this each turn.
+
 ## What this is
 
 Godot 4.7 prototype of **Minotaur** — an asymmetric *vertical descent treasure-heist*:
