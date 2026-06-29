@@ -53,6 +53,22 @@ godot --headless --path . --script res://scripts/test_maze_volume.gd
 re-scanned. Run `godot --headless --path . --import` once after adding/renaming a script
 with a `class_name`, then run the test.
 
+## Visual feedback — screenshots + paired data
+
+The headless tests prove *logic*; **screenshots** are how *visuals* get verified. The loop:
+
+- **Capture:** press **F12** in-game (`scripts/screenshot.gd`). Each shot writes three things
+  to `screenshots/` (`res://screenshots/`): the **PNG**, a same-named **`.json` sidecar**
+  (camera pose, `depth`, `look_target`, 5-ray `in_view`, full `world_state`), and one line
+  appended to **`run.log`**. Geometry is named so the data is legible —
+  `Floor_L<l>_<gx>_<gy>`, `Wall_L<l>_<gx>_<gy>`, `Ramp_l<l>_<gx>_<gy>`, `Entrance_<gx>_<gy>`.
+- **Read:** never interpret a PNG alone — use the **`/read-screenshot`** skill
+  (`.claude/skills/read-screenshot/SKILL.md`), which reads the PNG *with* its `.json` sidecar
+  so pixels are reconciled against ground truth (where the camera was, what it pointed at,
+  the seed/sizing). Default target = newest shot; or name a substring/timestamp.
+
+Background + the named-geometry convention: `.claude/memory/screenshot-debug-observability.md`.
+
 ## Architecture — the data → render pipeline
 
 Three layers, deliberately split so the logic is headless-testable and the rendering is
