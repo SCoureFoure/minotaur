@@ -1,13 +1,73 @@
-[gd_scene load_steps=7 format=3 uid="uid://cmain00minotaur"]
+[gd_scene load_steps=14 format=3 uid="uid://cmain00minotaur"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="0_main"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/maze_renderer.gd" id="2_maze"]
 [ext_resource type="Script" path="res://scripts/screenshot.gd" id="3_shot"]
+[ext_resource type="Shader" path="res://assests/shaders/sky/main.gdshader" id="4_sky"]
 
-[sub_resource type="ProceduralSkyMaterial" id="Sky_1"]
-sky_horizon_color = Color(0.55, 0.6, 0.7, 1)
-ground_horizon_color = Color(0.4, 0.42, 0.5, 1)
+[sub_resource type="FastNoiseLite" id="CloudNoise_1"]
+noise_type = 0
+frequency = 0.02
+fractal_octaves = 4
+
+[sub_resource type="NoiseTexture2D" id="CloudTex_1"]
+seamless = true
+noise = SubResource("CloudNoise_1")
+
+[sub_resource type="FastNoiseLite" id="CloudNoise_2"]
+noise_type = 0
+frequency = 0.035
+fractal_octaves = 3
+offset = Vector3(100, 100, 0)
+
+[sub_resource type="NoiseTexture2D" id="CloudTex_2"]
+seamless = true
+noise = SubResource("CloudNoise_2")
+
+[sub_resource type="FastNoiseLite" id="StarNoise_1"]
+noise_type = 3
+frequency = 0.5
+
+[sub_resource type="NoiseTexture2D" id="StarTex_1"]
+seamless = true
+noise = SubResource("StarNoise_1")
+
+[sub_resource type="FastNoiseLite" id="StarNoise_2"]
+noise_type = 1
+frequency = 0.2
+
+[sub_resource type="NoiseTexture2D" id="StarTex_2"]
+seamless = true
+noise = SubResource("StarNoise_2")
+
+[sub_resource type="ShaderMaterial" id="Sky_1"]
+shader = ExtResource("4_sky")
+shader_parameter/sky_day = Color(0.0, 0.3, 0.7, 1.0)
+shader_parameter/horizon_day = Color(0.75, 0.85, 0.85, 1.0)
+shader_parameter/horizon_sunset = Color(0.9, 0.4, 0.1, 1.0)
+shader_parameter/sky_sunset = Color(0.15, 0.2, 0.4, 1.0)
+shader_parameter/horizon_night = Color(0.1, 0.15, 0.2, 1.0)
+shader_parameter/sky_night = Color(0.05, 0.1, 0.15, 1.0)
+shader_parameter/day_night_mix = 0.8
+shader_parameter/use_directional_light = true
+shader_parameter/horizon_exponent = 2.0
+shader_parameter/sunset_amount_exponent = 0.7
+shader_parameter/night_amount_exponent = 4.0
+shader_parameter/cloud_color = Color(0.9, 0.9, 0.92, 1.0)
+shader_parameter/cloud_tiling = Vector2(1.0, 1.0)
+shader_parameter/wind_speed = Vector2(0.5, 0.5)
+shader_parameter/cloud_density = 0.6
+shader_parameter/cloud_depth = 2.0
+shader_parameter/cloud_shape_exponent = 2.0
+shader_parameter/cloud_occlude_exponent = 1.0
+shader_parameter/sun_scale = 0.05
+shader_parameter/sun_strength = 15.0
+shader_parameter/sun_color = Color(1.0, 0.9, 0.0, 1.0)
+shader_parameter/cloud_tex_01 = SubResource("CloudTex_1")
+shader_parameter/cloud_tex_02 = SubResource("CloudTex_2")
+shader_parameter/night_noise_01 = SubResource("StarTex_1")
+shader_parameter/night_noise_02 = SubResource("StarTex_2")
 
 [sub_resource type="Sky" id="Sky_2"]
 sky_material = SubResource("Sky_1")
