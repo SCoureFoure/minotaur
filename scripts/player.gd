@@ -7,6 +7,17 @@ extends CharacterBody3D
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_hide_first_person_head()
+
+
+func _hide_first_person_head() -> void:
+	var nodes_to_check = [self]
+	while nodes_to_check.size() > 0:
+		var current = nodes_to_check.pop_front()
+		for child in current.get_children():
+			if child is MeshInstance3D and String(child.name).contains("Head"):
+				child.visible = false
+			nodes_to_check.append(child)
 
 
 func _unhandled_input(event: InputEvent) -> void:

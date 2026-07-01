@@ -142,10 +142,12 @@ through Warboss (`/warboss-horde:delegate`): a spec's acceptance-criteria block 
 
 Topology is owned by the maze algorithms (connectivity guaranteed); **visuals** will be
 owned by mesh autotiling. `maze_autotile.gd` (`wall_mask`) already computes the
-wall-neighbor bitmask for this. Synty terrain kits in `assests/terrain` are **elevation-blend**
+wall-neighbor bitmask for this. Synty terrain kits in `assets/terrain` are **elevation-blend**
 (sloped Side/Corner pieces, not vertical wall panels) — they suit the ramps/cliffs of a
-descent, not flat corridor walls. The `assests/shaders` (sky/water) and `BinbunGrass` packs
+descent, not flat corridor walls. The `assets/shaders` (sky/water) and `BinbunGrass` packs
 are present but unwired; the grass `.tres` references `res://assets/BinbunGrass/...` while the
-pack sits at `res://assests/terrain/BinbunGrass/` — repath when integrating.
+pack sits at `res://assets/terrain/BinbunGrass/` — repath when integrating.
 
-Note: the assets directory is spelled **`assests`** (sic) — match it in `res://` paths.
+Note: the assets directory is `assets` (`res://assets/...`). It was previously the
+misspelled `assests`; a duplicate untracked `assets/` copy caused UID collisions that
+broke `.glb` import, so the two were collapsed into the single tracked `assets/`.

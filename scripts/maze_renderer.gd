@@ -166,7 +166,7 @@ func _build_calibration() -> void:
 	var i := 0
 	for n in _CALIB_MESHES:
 		var mi := MeshInstance3D.new()
-		mi.mesh = load("res://assests/terrain/%s.obj" % n)
+		mi.mesh = load("res://assets/terrain/%s.obj" % n)
 		mi.position = Vector3(x, 0.0, 0.0)
 		mi.name = n
 		mi.material_override = _calib_mat(colors[i])
@@ -324,7 +324,7 @@ func _build_island() -> void:
 	var hole := {}
 	for e in entrance_cells:
 		hole["%d:%d" % [e[0], e[1]]] = true
-	var ground_mat := load("res://assests/terrain/BinbunGrass/src/materials/grass_01/grass_ground_01.tres").duplicate()
+	var ground_mat := load("res://assets/terrain/BinbunGrass/src/materials/grass_01/grass_ground_01.tres").duplicate()
 	ground_mat.set_shader_parameter("color_gradient", _grass_gradient())
 	var ground_fn := FastNoiseLite.new()
 	ground_fn.frequency = 0.05
@@ -332,7 +332,7 @@ func _build_island() -> void:
 	ground_noise.seamless = true
 	ground_noise.noise = ground_fn
 	ground_mat.set_shader_parameter("noise_texture", ground_noise)
-	var sand_mat := load("res://assests/terrain/BinbunGrass/src/materials/grass_01/grass_ground_01.tres").duplicate()
+	var sand_mat := load("res://assets/terrain/BinbunGrass/src/materials/grass_01/grass_ground_01.tres").duplicate()
 	sand_mat.set_shader_parameter("color_gradient", _sand_gradient())
 	var sand_fn := FastNoiseLite.new()
 	sand_fn.frequency = 0.05
@@ -365,10 +365,10 @@ func _build_island() -> void:
 # Uses one MultiMeshInstance3D per clump mesh (4 total max). Seeded from maze_seed.
 func _build_grass() -> void:
 	var grass_paths := [
-		"res://assests/terrain/Hilly_Prop_Grass_Clump_1 (2).obj",
-		"res://assests/terrain/Hilly_Prop_Grass_Clump_2 (2).obj",
-		"res://assests/terrain/Hilly_Prop_Grass_Clump_3 (2).obj",
-		"res://assests/terrain/Hilly_Prop_Grass_Clump_4 (2).obj",
+		"res://assets/terrain/Hilly_Prop_Grass_Clump_1 (2).obj",
+		"res://assets/terrain/Hilly_Prop_Grass_Clump_2 (2).obj",
+		"res://assets/terrain/Hilly_Prop_Grass_Clump_3 (2).obj",
+		"res://assets/terrain/Hilly_Prop_Grass_Clump_4 (2).obj",
 	]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = maze_seed ^ 0x6A55
@@ -422,7 +422,7 @@ func _build_grass_carpet() -> void:
 	quad.subdivide_depth = 2
 	quad.center_offset = Vector3(0, 0.2, 0)   # base at y=0, tip at 0.4
 
-	var grass_mat := load("res://assests/terrain/BinbunGrass/src/materials/grass_01/grass_01.tres")
+	var grass_mat := load("res://assets/terrain/BinbunGrass/src/materials/grass_01/grass_01.tres")
 	grass_mat.set_shader_parameter("wind_velocity", Vector2(0.6, 0.35))
 	grass_mat.set_shader_parameter("random_variation", 0.1)
 	grass_mat.set_shader_parameter("color_gradient", _grass_gradient())
@@ -487,7 +487,7 @@ func _build_water() -> void:
 	var z1: float = (grid_h - 1) * cell_size + cell_size * 0.5
 	var m: float = max(grid_w, grid_h) * cell_size * 2.0
 	var mat := ShaderMaterial.new()
-	mat.shader = load("res://assests/shaders/water/water.gdshader")
+	mat.shader = load("res://assets/shaders/water/water.gdshader")
 
 	var fn_wave := FastNoiseLite.new()
 	fn_wave.frequency = 0.01
@@ -638,7 +638,7 @@ func _ramp(gx: int, gy: int, top_y: float, bot_y: float, col: Color, name: Strin
 # --- KayKit visual wall skin (GPU-instanced, no collision) ------------------
 # KayKit wall mesh native size (X & Y); used to scale to our grid.
 const WALL_NATIVE := 4.0
-const KAYKIT_GLTF := "res://assests/props/KayKit_DungeonRemastered_1.1_FREE/Assets/gltf/"
+const KAYKIT_GLTF := "res://assets/props/KayKit_DungeonRemastered_1.1_FREE/Assets/gltf/"
 
 # Extract a Mesh from a PackedScene (.gltf). Frees the temp instance.
 # Returns null if the file cannot be loaded or contains no MeshInstance3D.

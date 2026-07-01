@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/maze_renderer.gd" id="2_maze"]
 [ext_resource type="Script" path="res://scripts/screenshot.gd" id="3_shot"]
-[ext_resource type="Shader" path="res://assests/shaders/sky/main.gdshader" id="4_sky"]
+[ext_resource type="Shader" path="res://assets/shaders/sky/main.gdshader" id="4_sky"]
 
 [sub_resource type="FastNoiseLite" id="CloudNoise_1"]
 noise_type = 0

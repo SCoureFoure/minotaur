@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://cnr8gbcn5u3bw"
+path="res://.godot/imported/Beach_Terrain_Sand_Side_Gentle (2).obj-03a876c78f84540280d8ab10702d2be7.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Beach_Terrain_Sand_Side_Gentle (2).obj-03a876c78f84540280d8ab10702d2be7.mesh"]
+
+source_file="res://assets/terrain/Beach_Terrain_Sand_Side_Gentle (2).obj"
+dest_files=["res://.godot/imported/Beach_Terrain_Sand_Side_Gentle (2).obj-03a876c78f84540280d8ab10702d2be7.mesh", "res://.godot/imported/Beach_Terrain_Sand_Side_Gentle (2).obj-03a876c78f84540280d8ab10702d2be7.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
