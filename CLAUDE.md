@@ -62,6 +62,13 @@ The headless tests prove *logic*; **screenshots** are how *visuals* get verified
   (camera pose, `depth`, `look_target`, 5-ray `in_view`, full `world_state`), and one line
   appended to **`run.log`**. Geometry is named so the data is legible —
   `Floor_L<l>_<gx>_<gy>`, `Wall_L<l>_<gx>_<gy>`, `Ramp_l<l>_<gx>_<gy>`, `Entrance_<gx>_<gy>`.
+- **Capture bot (no human):** `godot --path . res://scenes/capture.tscn` (**must run
+  NON-headless** — the dummy renderer produces blank images). It builds a small fixed maze,
+  flies a camera through the poses from `MazeCapture.waypoints()` (spawn, overhead,
+  each entrance, each level), calls `Screenshotter.capture_view()` per pose, and self-quits —
+  yielding a full labelled shot set (`..._<label>.png`) without anyone pressing F12. This is
+  the autonomous "sight" path; `scripts/screenshot.gd:capture_view(cam, maze, label)` is the
+  shared writer both F12 and the bot use. Waypoints are pure + tested (`test_capture_waypoints.gd`).
 - **Read:** never interpret a PNG alone — use the **`/read-screenshot`** skill
   (`.claude/skills/read-screenshot/SKILL.md`), which reads the PNG *with* its `.json` sidecar
   so pixels are reconciled against ground truth (where the camera was, what it pointed at,

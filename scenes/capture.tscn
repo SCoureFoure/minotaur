@@ -1,0 +1,33 @@
+[gd_scene load_steps=5 format=3 uid="uid://ccapture0minotaur"]
+
+[ext_resource type="Script" path="res://scripts/capture_bot.gd" id="0_bot"]
+[ext_resource type="Script" path="res://scripts/maze_renderer.gd" id="1_maze"]
+[ext_resource type="Script" path="res://scripts/screenshot.gd" id="2_shot"]
+
+[sub_resource type="Environment" id="Env_1"]
+background_mode = 1
+background_color = Color(0.55, 0.65, 0.8, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.7, 0.72, 0.8, 1)
+ambient_light_energy = 0.6
+
+[node name="Capture" type="Node3D"]
+script = ExtResource("0_bot")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_1")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 12, 0)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="MazeRenderer" type="Node3D" parent="."]
+script = ExtResource("1_maze")
+use_volume = true
+build_on_ready = false
+
+[node name="BotCam" type="Camera3D" parent="."]
+
+[node name="Screenshotter" type="Node" parent="."]
+script = ExtResource("2_shot")

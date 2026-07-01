@@ -12,9 +12,17 @@ func _input(event: InputEvent) -> void:
 func _shoot() -> void:
 	# Wait for the frame to finish drawing so the capture isn't blank/stale.
 	await RenderingServer.frame_post_draw
+	capture_view(get_viewport().get_camera_3d(), get_node_or_null("../MazeRenderer"))
 
-	var vp := get_viewport()
-	var cam := vp.get_camera_3d()
+# Reusable capture entry point: takes an explicit camera and maze node so a
+# capture bot can drive shots without relying on the active viewport camera
+# or a fixed "../MazeRenderer" node path. Does not await internally — the
+# caller is responsible for frame sync (see _shoot()).
+func capture_view(cam: Camera3D, maze: Node, label: String = "") -> void:
+	if cam == null:
+		return
+
+	var vp := cam.get_viewport()
 	var vp_size := vp.get_visible_rect().size
 	var img := vp.get_texture().get_image()
 
@@ -36,7 +44,6 @@ func _shoot() -> void:
 
 	# A) Fetch MazeRenderer world state safely.
 	var ws := {}
-	var maze := get_node_or_null("../MazeRenderer")
 	if maze != null and maze.has_method("debug_state"):
 		ws = maze.debug_state()
 
@@ -58,6 +65,8 @@ func _shoot() -> void:
 	var base := "shot_%s_pos%d_%d_%d_yaw%d_%s_look-%s" % [
 		ts_str, roundi(pos.x), roundi(pos.y), roundi(pos.z), roundi(yaw), depth, look_target]
 	base = _sanitize(base)
+	if label != "":
+		base = _sanitize(base + "_" + label)
 
 	var dir_abs := ProjectSettings.globalize_path("res://screenshots/")
 	DirAccess.make_dir_recursive_absolute(dir_abs)
@@ -118,7 +127,7 @@ func _ray_target(cam: Camera3D) -> String:
 # Cast rays at 5 viewport fractions; return a sorted unique array of hit node names (or "sky").
 func _in_view(cam: Camera3D) -> Array:
 	var names := {}
-	var vp_rect := get_viewport().get_visible_rect().size
+	var vp_rect := cam.get_viewport().get_visible_rect().size
 	var fracs := [Vector2(0.5, 0.5), Vector2(0.25, 0.25), Vector2(0.75, 0.25), Vector2(0.25, 0.75), Vector2(0.75, 0.75)]
 	var space := cam.get_world_3d().direct_space_state
 	for fr in fracs:
