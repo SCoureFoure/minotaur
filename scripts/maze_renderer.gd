@@ -753,7 +753,7 @@ func _build_ceiling_visuals() -> void:
 	for e in entrance_cells:
 		ent["%d:%d" % [e[0], e[1]]] = true
 	var sxz: float = cell_size / WALL_NATIVE
-	var top_y: float = ISLAND_TOP - ISLAND_THICK - 0.05   # just below the grass cap
+	var top_y: float = ISLAND_TOP - ISLAND_THICK - 0.30   # clearly below the grass cap (no z-fight)
 	var g0: Array = grids[0]
 	var xforms: Array = []
 	for gy in range(g0.size()):
