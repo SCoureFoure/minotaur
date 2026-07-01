@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(\"C:/Users/SCora/Desktop/Godot_v4.7-stable_win64.exe\" --path . res://scenes/capture.tscn:*)",
+      "Bash(\"C:/Users/SCora/Desktop/Godot_v4.7-stable_win64.exe\" --headless:*)"
+    ]
+  },
   "hooks": {
     "UserPromptSubmit": [
       {
