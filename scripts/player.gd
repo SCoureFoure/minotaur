@@ -8,6 +8,7 @@ extends CharacterBody3D
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_hide_first_person_head()
+	_apply_body_texture()
 
 
 func _hide_first_person_head() -> void:
@@ -15,8 +16,27 @@ func _hide_first_person_head() -> void:
 	while nodes_to_check.size() > 0:
 		var current = nodes_to_check.pop_front()
 		for child in current.get_children():
-			if child is MeshInstance3D and String(child.name).contains("Head"):
+			if child is MeshInstance3D and (String(child.name).contains("Head") or String(child.name).contains("Cape")):
 				child.visible = false
+			nodes_to_check.append(child)
+
+
+func _apply_body_texture() -> void:
+	var tex := load("res://assets/character_models/rogue (2).png") as Texture2D
+	if tex == null:
+		return
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = tex
+
+	var nodes_to_check = [self]
+	while nodes_to_check.size() > 0:
+		var current = nodes_to_check.pop_front()
+		for child in current.get_children():
+			if child is MeshInstance3D:
+				if child.mesh != null:
+					for i in child.mesh.get_surface_count():
+						child.set_surface_override_material(i, mat)
 			nodes_to_check.append(child)
 
 
