@@ -288,11 +288,11 @@ func _build_volume() -> void:
 		var gx2: int = 2 * int(lk["cx"]) + 1
 		var gy2: int = 2 * int(lk["cy"]) + 1
 		var lo: int = int(lk["lower"])
-		_ramp(gx2, gy2, _layer_y(lo), _layer_y(lo + 1), Color(0.85, 0.55, 0.2), "Ramp_l%d_%d_%d" % [lo, gx2, gy2])
+		_ramp(gx2, gy2, _layer_y(lo), _layer_y(lo + 1), Color(0.55, 0.50, 0.45), "Ramp_l%d_%d_%d" % [lo, gx2, gy2])
 
 	# Entrance ramps: island surface down to the first maze level.
 	for e in entrance_cells:
-		_ramp(e[0], e[1], ISLAND_TOP, _layer_y(0), Color(0.9, 0.7, 0.3), "Entrance_%d_%d" % [e[0], e[1]])
+		_ramp(e[0], e[1], ISLAND_TOP, _layer_y(0), Color(0.62, 0.56, 0.48), "Entrance_%d_%d" % [e[0], e[1]])
 
 	# Visual wall skin: GPU-instanced KayKit panels + pillars over every layer.
 	_build_wall_visuals()
@@ -787,7 +787,19 @@ func _two_sided_mat(mesh: Mesh) -> Material:
 		return null
 	var dup = m.duplicate()
 	if dup is BaseMaterial3D:
-		dup.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var bm := dup as BaseMaterial3D
+		bm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		# Gentle emission floor so enclosed tunnels never read pitch-dark.
+		# Drive emission from the albedo texture when present so surface detail
+		# is preserved; otherwise fall back to a low neutral-stone glow.
+		bm.emission_enabled = true
+		if bm.albedo_texture != null:
+			bm.emission_texture = bm.albedo_texture
+			bm.emission = Color(1, 1, 1)
+			bm.emission_energy_multiplier = 0.06
+		else:
+			bm.emission = Color(0.10, 0.11, 0.13)
+			bm.emission_energy_multiplier = 1.0
 	return dup
 
 func _add_wall_multimesh(mesh: Mesh, xforms: Array, node_name: String) -> void:

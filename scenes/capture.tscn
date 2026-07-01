@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://ccapture0minotaur"]
+[gd_scene format=3 uid="uid://dps45b7ba18ob"]
 
 [ext_resource type="Script" path="res://scripts/capture_bot.gd" id="0_bot"]
 [ext_resource type="Script" path="res://scripts/maze_renderer.gd" id="1_maze"]
