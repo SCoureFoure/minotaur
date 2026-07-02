@@ -10,9 +10,9 @@ description: >
   saved capture.
 ---
 
-You are inspecting a screenshot of the **Minotaur** Godot game. Never read the PNG alone —
-each shot has a paired `.json` sidecar that is ground truth for what the camera was, where
-it was, and what geometry it pointed at. Read both; reconcile the pixels against the data.
+You are routing a request to inspect a screenshot of the **Minotaur** Godot game. This
+skill resolves *which* shot is meant; the actual pixel + sidecar interpretation is
+delegated to the `screenshot-judge` subagent.
 
 ## Where shots live
 
@@ -33,28 +33,31 @@ Default = **most recent**. Map the user's words to a file:
 
 If nothing matches, list the newest few names and ask which.
 
-## Read the pair
+## Route to the judge (never read the PNG here)
 
-1. **Read the `.json` sidecar first.** Keys: `camera_position`, `camera_yaw_deg`,
-   `camera_pitch_deg`, `depth` (`surface`/`L0`/`L1`…), `camera_cell`, `camera_level`,
-   `look_target` (single ray hit), `in_view` (5-ray sample of node names), and
-   `world_state` (`seed`, `cols/rows/layers`, `cell_size`, `level_height`, `grid_w/h`,
-   `entrance_cells`, `water_level`, `spawn`). Node names encode location:
-   `Floor_L<l>_<gx>_<gy>`, `Wall_L<l>_<gx>_<gy>`, `Ramp_l<l>_<gx>_<gy>`,
-   `Entrance_<gx>_<gy>`, plus surface `Grass_*`/`Sand_*`/`Water`.
-2. **Read the PNG** (Read tool renders it visually).
-3. Optionally tail `run.log` for neighbouring shots / sequence context.
+Never `Read` a screenshot PNG or its `.json` sidecar into the main agent's own context —
+pixel and sidecar interpretation belongs to the `screenshot-judge` subagent (defined in
+`.claude/agents/screenshot-judge.md`). Rationale: images read into the main context are
+replayed at orchestrator prices on every later turn.
 
-## Report
+## Dispatch
 
-Lead with the answer to what the user asked. Then ground the image in the data:
-- Where the camera is (cell, level/depth, yaw/pitch) and what it's looking at
-  (`look_target`) — so "the wall on the right" becomes "`Wall_L1_10_12`".
-- Reconcile anything surprising in the pixels with `in_view` + `world_state`. Holes,
-  see-through gaps, floating geometry, z-fighting, lighting — name the specific node and,
-  when relevant, the `maze_renderer.gd` builder responsible.
-- If the finding is a durable rule/bug, offer to capture it (memory note or `/spec`).
+1. Resolve the shot filename(s) using **Resolve which shot** above.
+2. Build the judging input: the explicit PNG path(s) plus EITHER a numbered checklist of
+   concrete expected facts derived from what the user asked — phrase each as
+   `expected -> observable`, e.g. "Rogue_Hooded model visible, not the capsule" — OR the
+   user's open question verbatim if it can't be reduced to a checklist.
+3. Dispatch via the Agent tool: `subagent_type: screenshot-judge`; pick the model per
+   call — `haiku` when the input is a checklist, `sonnet` when it's an open
+   visual-judgment question (e.g. "does the lighting look right").
+4. The subagent returns a first line `VERDICT: pass|fail|unclear` plus grounded findings
+   naming specific nodes.
 
-Map world coords ↔ grid with `world_state`: cell `(gx,gy)` center is at world
-`(gx*cell_size, _layer_y(l), gy*cell_size)`, and `_layer_y(l) = -(l+1)*level_height`.
-Background on the tool + named-geometry convention: `.claude/memory/screenshot-debug-observability.md`.
+## Relay
+
+Lead with the verdict, answering what the user asked. Quote the judge's grounded
+findings. Do NOT re-read the image to double-check — if the verdict is `unclear`, either
+sharpen the checklist and re-dispatch once, or escalate to the user. If the finding is a
+durable rule/bug, offer to capture it (memory note or `/spec`).
+
+Sidecar schema, node naming, and coordinate math live in `.claude/agents/screenshot-judge.md`.
